@@ -16,13 +16,16 @@
   <form id="f"><input id="t" placeholder="Nueva tarea" required><button>Agregar</button></form>
   <ul id="l"></ul>
   
+
 <script>
     const lista = document.getElementById('l');
     const entrada = document.getElementById('t');
     const aviso = document.getElementById('aviso');
-    const modoEstatico = location.hostname.endsWith('github.io');
 
-    function leerTareas() {
+    // Detectar si estamos en GitHub Pages
+    const githubPages = window.location.hostname.endsWith('github.io');
+
+    function obtenerTareas() {
       return JSON.parse(localStorage.getItem('tareas-itla') || '[]');
     }
 
@@ -31,11 +34,11 @@
     }
 
     async function cargar() {
-      let tareas;
+      let tareas = [];
 
-      if (modoEstatico) {
-        tareas = leerTareas();
-        aviso.textContent = 'Tus tareas se guardan en este navegador.';
+      if (githubPages) {
+        tareas = obtenerTareas();
+        aviso.textContent = 'Las tareas se guardan en este navegador.';
       } else {
         const respuesta = await fetch('/api/tareas');
         tareas = await respuesta.json();
@@ -55,7 +58,7 @@
         li.style.cursor = 'pointer';
 
         li.onclick = async () => {
-          if (modoEstatico) {
+          if (githubPages) {
             tarea.completada = !tarea.completada;
             guardarTareas(tareas);
           } else {
@@ -71,14 +74,14 @@
       });
     }
 
-    document.getElementById('f').onsubmit = async e => {
+    document.getElementById('f').addEventListener('submit', async e => {
       e.preventDefault();
 
       const titulo = entrada.value.trim();
       if (!titulo) return;
 
-      if (modoEstatico) {
-        const tareas = leerTareas();
+      if (githubPages) {
+        const tareas = obtenerTareas();
 
         tareas.push({
           id: Date.now(),
@@ -98,8 +101,8 @@
       }
 
       entrada.value = '';
-      cargar();
-    };
+      await cargar();
+    });
 
     cargar();
   </script>
