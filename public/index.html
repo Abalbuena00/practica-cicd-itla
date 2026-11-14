@@ -15,27 +15,94 @@
   <p id="aviso">Versión estática (GitHub Pages). Ejecuta <code>npm start</code> para usar la API.</p>
   <form id="f"><input id="t" placeholder="Nueva tarea" required><button>Agregar</button></form>
   <ul id="l"></ul>
-  <script>
-    const l = document.getElementById('l');
-    async function cargar() {
-      try {
-        const r = await fetch('/api/tareas'); if (!r.ok) throw 0;
-        document.getElementById('aviso').hidden = true;
-        l.innerHTML = '';
-        (await r.json()).forEach(t => {
-          const li = document.createElement('li'); li.textContent = t.titulo;
-          if (t.completada) li.className = 'hecha';
-          li.onclick = async () => { await fetch('/api/tareas/' + t.id, { method: 'PATCH' }); cargar(); };
-          l.appendChild(li);
-        });
-      } catch (e) { /* sin API: modo estático */ }
+  
+<script>
+    const lista = document.getElementById('l');
+    const entrada = document.getElementById('t');
+    const aviso = document.getElementById('aviso');
+    const modoEstatico = location.hostname.endsWith('github.io');
+
+    function leerTareas() {
+      return JSON.parse(localStorage.getItem('tareas-itla') || '[]');
     }
+
+    function guardarTareas(tareas) {
+      localStorage.setItem('tareas-itla', JSON.stringify(tareas));
+    }
+
+    async function cargar() {
+      let tareas;
+
+      if (modoEstatico) {
+        tareas = leerTareas();
+        aviso.textContent = 'Tus tareas se guardan en este navegador.';
+      } else {
+        const respuesta = await fetch('/api/tareas');
+        tareas = await respuesta.json();
+        aviso.hidden = true;
+      }
+
+      lista.innerHTML = '';
+
+      tareas.forEach(tarea => {
+        const li = document.createElement('li');
+        li.textContent = tarea.titulo;
+
+        if (tarea.completada) {
+          li.className = 'hecha';
+        }
+
+        li.style.cursor = 'pointer';
+
+        li.onclick = async () => {
+          if (modoEstatico) {
+            tarea.completada = !tarea.completada;
+            guardarTareas(tareas);
+          } else {
+            await fetch('/api/tareas/' + tarea.id, {
+              method: 'PATCH'
+            });
+          }
+
+          cargar();
+        };
+
+        lista.appendChild(li);
+      });
+    }
+
     document.getElementById('f').onsubmit = async e => {
       e.preventDefault();
-      await fetch('/api/tareas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: document.getElementById('t').value }) });
-      document.getElementById('t').value = ''; cargar();
+
+      const titulo = entrada.value.trim();
+      if (!titulo) return;
+
+      if (modoEstatico) {
+        const tareas = leerTareas();
+
+        tareas.push({
+          id: Date.now(),
+          titulo: titulo,
+          completada: false
+        });
+
+        guardarTareas(tareas);
+      } else {
+        await fetch('/api/tareas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ titulo })
+        });
+      }
+
+      entrada.value = '';
+      cargar();
     };
+
     cargar();
   </script>
+
 </body>
 </html>
